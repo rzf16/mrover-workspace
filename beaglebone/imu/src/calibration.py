@@ -16,6 +16,9 @@ ICM20948_PWR_MGMT_1 = 0x06
 ICM20948_PWR_MGMT_2 = 0x07
 ICM20948_INT_PIN_CFG = 0x0F
 
+RAW_DATA_0_RDY_INT = 0x1A
+
+
 AK09916_I2C_ADDR = 0x0c
 bus = smbus.SMBus(2)
 
@@ -85,6 +88,12 @@ def set_bank(bank):
 
 def get_data():
     set_bank(0)
+
+    # waits for the data to be ready 
+    while not (bus.read_byte_data(I2C_IMU_ADDRESS, RAW_DATA_0_RDY_INT) & 0xFE):
+        print("data not ready")
+        t.sleep(0.001)
+
     accel_x, accel_y, accel_z, gyro_x, gyro_y, gyro_z = get_accelgyro_data(0x2d)
     mag_x, mag_y, mag_z = get_mag_data(0x11)
 
@@ -164,7 +173,8 @@ def main():
             offsets[YACCEL] += data[YACCEL]
 
             # in the z direction acceleration should be 1, so the offset is the difference
-            offsets[ZACCEL] += (data[ZACCEL] - 1)
+            # accel units at 2048 LSB/g 
+            offsets[ZACCEL] += (data[ZACCEL] - 2048)
 
             offsets[XGYRO] += data[XGYRO]
             offsets[YGYRO] += data[YGYRO]
