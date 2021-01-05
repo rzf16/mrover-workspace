@@ -1,0 +1,15 @@
+#pragma once
+#mesondefine AR_DETECTION
+#mesondefine AR_RECORD
+#mesondefine OBSTACLE_DETECTION
+<<<<<<< HEAD:onboard/cv/config.h.in
+#mesondefine OBSTACLE_RECORD
+=======
+#mesondefine OBS_RECORD
+>>>>>>> upstream/main:jetson/percep/config.h.in
+#mesondefine ZED_SDK_PRESENT
+#mesondefine PERCEPTION_DEBUG
+#mesondefine WRITE_CURR_FRAME_TO_DISK
+#mesondefine DEFAULT_ONLINE_DATA_FOLDER
+
+
