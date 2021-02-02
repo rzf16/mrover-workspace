@@ -67,6 +67,30 @@ class SensorComponent(ABC):
         pass
 
 
+def lowPass(self, new, old, bias):
+    '''
+    Returns the new value run through a low-pass filter
+
+    @param float new: new value
+    @param float old: old value
+    @param float filter_bias: bias towards new value
+    @return float: filtered new value
+    '''
+    if old is None:
+        return new
+    return new * bias + old * (1 - bias)
+
+
+def threshold(self, value, threshold_value):
+    '''
+    Changes the value to 0 if |value| <= a threshold
+
+    @param float value: value to threshold
+    @param float threshold: threshold value
+    @return float: thresholded value
+    '''
+    return value if abs(value) > threshold_value else 0.0
+
 class AccelComponent(SensorComponent):
     '''
     Class for acceleration sensor component
@@ -82,42 +106,15 @@ class AccelComponent(SensorComponent):
         self.accel_z = None
         self.filter_bias = filter_bias
         self.threshold_value = threshold
-    
-    def lowPass(self, new, old, bias):
-        '''
-        Returns the new value run through a low-pass filter
-
-        @param float new: new value
-        @param float old: old value
-        @param float filter_bias: bias towards new value
-        @return float: filtered new value
-        '''
-        if old is None:
-            return new
-        return new * bias + old * (1 - bias)
-    
-    def threshold(self, value, threshold_value):
-        '''
-        Returns value if |value| > threshold, else threshold
-
-        @param float value: value to threshold
-        @param float threshold: threshold value
-        @return float: thresholded value
-        '''
-        return value if abs(value) > threshold_value else 0.0
 
     def update(self, new_accel_sensor):
         if hasattr(new_accel_sensor, "accel_x_g"):
-            self.accel_x = self.lowPass(new_accel_sensor.accel_x_g * 9.8, self.accel_x, self.filter_bias)
-            if abs(self.accel_x) > self.threshold_value:
-                print("----- YUUUUGE -----")
-                print(self.accel_x)
-            self.accel_x = self.threshold(self.accel_x, self.threshold_value)
-            # print(self.accel_x)
-            self.accel_y = self.lowPass(new_accel_sensor.accel_y_g * 9.8, self.accel_y, self.filter_bias)
-            self.accel_y = self.threshold(self.accel_y, self.threshold_value)
-            self.accel_z = self.lowPass(new_accel_sensor.accel_z_g * 9.8, self.accel_z, self.filter_bias)
-            self.accel_z = self.threshold(self.accel_z, self.threshold_value)
+            self.accel_x = lowPass(new_accel_sensor.accel_x_g * 9.8, self.accel_x, self.filter_bias)
+            self.accel_x = threshold(self.accel_x, self.threshold_value)
+            self.accel_y = lowPass(new_accel_sensor.accel_y_g * 9.8, self.accel_y, self.filter_bias)
+            self.accel_y = threshold(self.accel_y, self.threshold_value)
+            self.accel_z = lowPass(new_accel_sensor.accel_z_g * 9.8, self.accel_z, self.filter_bias)
+            self.accel_z = threshold(self.accel_z, self.threshold_value)
         else:
             raise AttributeError("No acceleration attributes found")
 
@@ -125,12 +122,21 @@ class AccelComponent(SensorComponent):
         return self.accel_x is not None and self.accel_y is not None and \
             self.accel_z is not None
 
+    def flatten(self, pitch_deg):
+        '''
+        Removes the vertical component of acceleration
+
+        @param float pitch_deg: absolute pitch (degrees)
+        @return float: horizontal component of acceleration
+        '''
+        return self.accel_x * np.cos(np.radians(pitch_deg))
+
     def absolutify(self, bearing_deg, pitch_deg):
         '''
         Converts acceleration in x,y,z to acceleration in North,East,Z
 
         @param float bearing_deg: absolute bearing (decimal degrees East of North)
-        @param float pitch_deg: absolute pitch (decimal degrees)
+        @param float pitch_deg: absolute pitch (degrees)
         @return dict: acceleration in North,East,Z
         '''
         if self.accel_x is None or bearing_deg is None or pitch_deg is None:
@@ -149,37 +155,63 @@ class VelComponent(SensorComponent):
     '''
     Class for velocity sensor component
 
-    @attribute float ground_speed: directionless speed (m/s)
+    @attribute float speed: directionless speed (m/s)
+    @attribute bool ground: holds ground speed
     '''
 
-    def __init__(self):
-        self.ground_speed = None
+    def __init__(self, ground=False):
+        self.speed = None
+        self.ground = ground
 
     def update(self, new_vel_sensor):
         # Raw speed is directionless, throw out negative values
         if hasattr(new_vel_sensor, "speed"):
             if new_vel_sensor.speed >= 0:
-                self.ground_speed = new_vel_sensor.speed
+                self.speed = new_vel_sensor.speed
         else:
             raise AttributeError("No speed attributes found")
 
     def ready(self):
-        return self.ground_speed is not None
+        return self.speed is not None
 
-    def absolutify(self, bearing_deg):
+    def flatten(self, pitch_deg):
         '''
-        Separates raw ground speed into velocity in North,East
+        Removes the vertical component of velocity
+
+        @param float pitch_deg: absolute pitch (degrees)
+        @return float: horizontal component of velocity
         '''
-        if self.ground_speed is None or bearing_deg is None:
+        if self.ground:
+            return self.speed
+        return self.speed * np.cos(np.radians(pitch_deg))
+
+    def absolutify(self, bearing_deg, pitch_deg):
+        '''
+        Separates raw speed into velocity in North,East,Z
+
+        @param float bearing_deg: absolute bearing (decimal degrees East of North)
+        @param float pitch_deg: absolute pitch (degrees)
+        @return dict: acceleration in North,East,Z
+        '''
+        if self.speed is None or bearing_deg is None:
+            return None
+
+        if not self.ground and pitch_deg is None:
             return None
 
         # Should never happen due to the check in update method, but redundancy isn't bad
-        if self.ground_speed < 0:
+        if self.speed < 0:
             return None
 
+        if self.ground:
+            pitch_deg = 0
+
         absolute = {}
-        absolute["north"] = self.ground_speed * np.cos(np.radians(bearing_deg))
-        absolute["east"] = self.ground_speed * np.sin(np.radians(bearing_deg))
+        absolute["north"] = self.speed * np.cos(np.radians(pitch_deg)) * \
+                            np.cos(np.radians(bearing_deg))
+        absolute["east"] = self.speed * np.cos(np.radians(pitch_deg)) * \
+                           np.sin(np.radians(bearing_deg))
+        absolute["z"] = self.speed * np.sin(np.radians(pitch_deg))
         return absolute
 
 
@@ -210,7 +242,7 @@ class PosComponent(SensorComponent):
     def ready(self):
         return self.lat_deg is not None and self.long_deg is not None
 
-    def asDecimal(self):
+    def asDegs(self):
         '''
         Returns latitude and longitude (decimal degrees)
 
@@ -218,7 +250,7 @@ class PosComponent(SensorComponent):
         '''
         return {"lat": self.lat_deg, "long": self.long_deg}
 
-    def asMinutes(self):
+    def asDegsMins(self):
         '''
         Returns latitude and longitude (integer degrees, decimal minutes)
 
@@ -244,6 +276,7 @@ class BearingComponent(SensorComponent):
         if hasattr(new_bearing_sensor, "bearing"):
             self.bearing_deg = new_bearing_sensor.bearing
         elif hasattr(new_bearing_sensor, "bearing_deg"):
+            # 999 is the invalid bearing marker for the ZED-F9P RTK GPS
             if new_bearing_sensor.bearing_deg != 999.:
                 self.bearing_deg = new_bearing_sensor.bearing_deg
         else:
@@ -306,15 +339,15 @@ class MagComponent(SensorComponent):
 
 class Imu(Sensor):
     '''
-    Class for IMU sensor component
+    Class for 9-DoF IMU sensor
 
     @attribute AccelComponent accel: accelerometer component of IMU
     @attribute BearingComponent bearing: bearing component of IMU
     @attribute AngVelComponent gyro: gyroscope component of IMU
     @attribute MagComponent mag: magnetometer component of IMU
-    @attribute float roll_deg: absolute roll (decimal degrees)
-    @attribute float pitch_deg: absolute pitch (decimal degrees)
-    @attribute float yaw_deg: absolute yaw (decimal degrees)
+    @attribute float roll_deg: absolute roll (degrees)
+    @attribute float pitch_deg: absolute pitch (degrees)
+    @attribute float yaw_deg: absolute yaw (degrees)
     '''
 
     def __init__(self, accel_filter_bias=1.0, accel_threshold=0.0):
@@ -377,7 +410,7 @@ class Imu(Sensor):
 
 class Gps(Sensor):
     '''
-    Class for GPS data
+    Class for GPS sensor
 
     @attribute VelComponent vel: velocity component of GPS
     @attribute PosComponent pos: position component of GPS
@@ -386,7 +419,7 @@ class Gps(Sensor):
 
     def __init__(self):
         super().__init__()
-        self.vel = VelComponent()
+        self.vel = VelComponent(ground=True)
         self.pos = PosComponent()
         self.bearing = BearingComponent()
 

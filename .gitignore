@@ -13,3 +13,6 @@ build/
 output.log
 base_station/gui/src/static/map
 /core.*
+ag_calibration.txt
+calibration.txt
+mag_calibration.txt

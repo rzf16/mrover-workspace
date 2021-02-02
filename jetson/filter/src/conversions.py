@@ -14,7 +14,7 @@ def lat2meters(lat, ref_lat=0):
     reduce conversion error
 
     @param float/ndarray lat: absolute degrees latitude
-    @optional ref_lat: reference latitude used to reduce conversion error
+    @param ref_lat: reference latitude used to reduce conversion error
     @return float/ndarray: meters North/South relative to ref_lat
     '''
     return np.radians(lat - ref_lat) * EARTH_RADIUS_M
@@ -26,7 +26,7 @@ def meters2lat(meters, ref_lat=0):
     its use in lat2meters
 
     @param float/ndarray meters: meters North/South relative to ref_lat
-    @optional float ref_lat: reference latitude used to reduce conversion error
+    @param float ref_lat: reference latitude used to reduce conversion error
     @return float/ndarray: absolute degrees latitude
     '''
     return np.degrees(meters / EARTH_RADIUS_M) + ref_lat
@@ -39,7 +39,7 @@ def long2meters(long, lat, ref_long=0):
 
     @param float/ndarray long: absolute degrees longitude
     @param float/ndarray lat: absolute degrees latitude
-    @optional ref_long: reference longitude used to reduce conversion error
+    @param ref_long: reference longitude used to reduce conversion error
     @return float/ndarray: meters East/West relative to ref_long
     '''
     lat_cos = np.cos(np.radians(lat))
@@ -54,7 +54,7 @@ def meters2long(meters, lat, ref_long=0):
 
     @param float/ndarray meters: meters East/West relative to ref_long
     @param float/ndarray lat: absolute degrees latitude
-    @optional float ref_long: reference longitude used to reduce conversion error
+    @param float ref_long: reference longitude used to reduce conversion error
     @return float/ndarray: absolute degrees longitude
     '''
     lat_cos = np.cos(np.radians(lat))
@@ -68,7 +68,7 @@ def decimal2min(decimal):
 
     @param float decimal: decimal degrees
     @return int: integer degrees
-    @return float: decimal minutes
+            float: decimal minutes
     '''
     min, deg = math.modf(decimal)
     return int(deg), min * 60

@@ -1,2 +1,3 @@
 src/calibration.txt
-src/accgyrocalib.txt
+src/ag_calibration.txt
+src/mag_calibration.txt

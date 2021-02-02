@@ -1,0 +1,10 @@
+{
+    "COMMENT" : "ALL VALUES IN METERS",
+
+    "P_initial": [1, 0, 1, 0],
+    "Q_Dynamic": 0.1,
+    "Q_Static": 0.001,
+    "R_Dynamic": [1, 1, 1, 1],
+    "R_Static": [4, 0.01, 4, 0.01],
+    "use_vel": false
+}
